@@ -1,14 +1,17 @@
 const express = require('express');
 
 const User = require("../models/userModel");
+const config = require('../config');
+const jwt = require('jsonwebtoken');
+const verifyToken = require('../verifyToken');
 
 const router = express.Router();
 
 //take an individual user data
-router.route('/:username').get((req, res) => {
+router.route('/:username').get(verifyToken.checkToken, (req, res) => {
     User.findOne({ username: req.params.username }, (err, result) => {
         if (err) res.status(500).json({ msg: err });
-        res.json({
+        return res.json({
             data: result,
             username: req.params.username,
         });
@@ -24,7 +27,13 @@ router.route('/login').post((req, res) => {
         }
         if (result.password == req.body.password) {
             //Here add JWT token logic
-            res.json('ok');
+            let token = jwt.sign({ username: req.body.username }, config.key, {
+                expiresIn: '24h',    //expire in 24 hours
+            });
+            res.json({
+                token: token,
+                msg: "success",
+            });
         } else {
             res.status(403).json("Password is incorrect")
         }
@@ -52,7 +61,7 @@ router.route('/register').post((req, res) => {
 
 
 //update user
-router.route('/update/:username').patch((req, res) => {
+router.route('/update/:username').patch(verifyToken.checkToken, (req, res) => {
     User.findOneAndUpdate(
         { username: req.params.username },
         { $set: { password: req.body.password } },
@@ -68,7 +77,7 @@ router.route('/update/:username').patch((req, res) => {
 });
 
 //delete user
-router.route('/delete/:username').delete((req, res) => {
+router.route('/delete/:username').delete(verifyToken.checkToken, (req, res) => {
     User.findOneAndDelete({ username: req.params.username }, (err, result) => {
         if (err) return res.status(500).json({ message: err });
         const message = {
